@@ -50,6 +50,7 @@ interface FeatureFlags {
   json: Boolean;
   chromeFlags: string;
   chromePath?: string
+  showLaunchingResults: Boolean;
   port?: number;
 }
 

@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See LICENSE
 
 
-import {MetricsResults, MetricsDefinition, Timing, Timestamp, LighthouseResults, LighthouseAudits} from '../types/types';
+import {MetricsResults, MetricsDefinition, Timing, Timestamp, LighthouseResults, LighthouseAudits, FeatureFlags} from '../types/types';
 
 const metricsDefinitions: MetricsDefinition[] = require('lighthouse/lighthouse-core/lib/traces/pwmetrics-events.js').metricsDefinitions;
 
@@ -35,16 +35,16 @@ module.exports = {
   prepareData
 };
 
-const checkAudits = (audits: LighthouseAudits) => Object.keys(audits).forEach(key => {
+const checkAudits = (audits: LighthouseAudits, flags: FeatureFlags) => Object.keys(audits).forEach(key => {
   const debugString = audits[key].debugString;
-  if (audits[key].debugString)
+  if (audits[key].debugString && flags.showLaunchingResults)
     console.log(`${debugString} Audit key: ${key}`);
 });
 
-function prepareData(res: LighthouseResults): MetricsResults {
+function prepareData(res: LighthouseResults, flags: FeatureFlags): MetricsResults {
   const audits = res.audits;
 
-  checkAudits(audits);
+  checkAudits(audits, flags);
 
   const colorP0 = 'yellow';
   const colorP2 = 'green';

@@ -27,7 +27,7 @@ describe('Expectations', () => {
 
     it('should show expectation messages', () => {
       const normExpectations = expectations.normalizeMetrics(expectationsData);
-      expectations.checkExpectations(timings, normExpectations);
+      expectations.checkExpectations(timings, normExpectations, {showLaunchingResults: true});
       expect(logSpy).to.have.been.calledTwice;
     });
   });

@@ -1,20 +1,22 @@
 // Copyright 2016 Google Inc. All Rights Reserved.
 // Licensed under the Apache License, Version 2.0. See LICENSE
 
-import { Timing, ExpectationMetrics, NormalizedExpectationMetrics } from '../types/types';
+import { Timing, ExpectationMetrics, NormalizedExpectationMetrics, FeatureFlags } from '../types/types';
 const { getAssertionMessage, getMessageWithPrefix } = require('./utils/messages');
 
-function validateMetrics(metrics: ExpectationMetrics) {
+function validateMetrics(metrics: ExpectationMetrics, flags: FeatureFlags) {
   const metricsKeys = Object.keys(metrics);
 
   if (!metrics || !metricsKeys.length) {
-    console.error(getMessageWithPrefix('ERROR', 'NO_METRICS'));
+    if(flags.showLaunchingResults)
+      console.error(getMessageWithPrefix('ERROR', 'NO_METRICS'));
     process.exit(1);
   }
 
   metricsKeys.forEach(key => {
     if (!metrics[key] || !metrics[key].warn || !metrics[key].error) {
-      console.error(getMessageWithPrefix('ERROR', 'NO_EXPECTATION_ERROR', key));
+      if(flags.showLaunchingResults)
+        console.error(getMessageWithPrefix('ERROR', 'NO_EXPECTATION_ERROR', key));
       process.exit(1);
     }
   });
@@ -31,7 +33,7 @@ function normalizeMetrics(metrics: ExpectationMetrics): NormalizedExpectationMet
   return normalizedMetrics;
 }
 
-function checkExpectations(metricsData: Timing[], expectationMetrics: NormalizedExpectationMetrics) {
+function checkExpectations(metricsData: Timing[], expectationMetrics: NormalizedExpectationMetrics, flags: FeatureFlags) {
   metricsData.forEach(metric => {
     const metricName = metric.id;
     const expectationValue = expectationMetrics[metricName];
@@ -46,7 +48,7 @@ function checkExpectations(metricsData: Timing[], expectationMetrics: Normalized
       msg = getAssertionMessage('WARNING', metricName, expectationValue.warn, metricValue);
     }
 
-    if (msg) {
+    if (msg && flags.showLaunchingResults) {
       console.log(msg);
     }
   });

@@ -41,6 +41,7 @@ class PWMetrics {
     view: false,
     expectations: false,
     json: false,
+    showLaunchingResults: true,
     chromeFlags: ''
   };
   runs: number;
@@ -66,7 +67,7 @@ class PWMetrics {
 
     if (this.flags.expectations) {
       if (this.expectations) {
-        expectations.validateMetrics(this.expectations);
+        expectations.validateMetrics(this.expectations, this.flags);
         this.expectations = expectations.normalizeMetrics(this.expectations);
       } else throw new Error(messages.getMessageWithPrefix('ERROR', 'NO_EXPECTATIONS_FOUND'));
     }
@@ -87,10 +88,12 @@ class PWMetrics {
           resultHasExpectationErrors = this.resultHasExpectationErrors(currentMetricResult);
         }
         metricsResults[runIndex] = currentMetricResult;
-        console.log(messages.getMessageWithPrefix('SUCCESS', 'SUCCESS_RUN', runIndex, runs.length));
+        if(this.flags.showLaunchingResults)
+          console.log(messages.getMessageWithPrefix('SUCCESS', 'SUCCESS_RUN', runIndex, runs.length));
       } catch (error) {
         metricsResults[runIndex] = error;
-        console.error(messages.getMessageWithPrefix('ERROR', 'FAILED_RUN', runIndex, runs.length, error.message));
+        if(this.flags.showLaunchingResults)
+          console.error(messages.getMessageWithPrefix('ERROR', 'FAILED_RUN', runIndex, runs.length, error.message));
       }
     }
 
@@ -98,7 +101,8 @@ class PWMetrics {
     if (results.runs.length > 0) {
       if (this.runs > 1 && !this.flags.submit) {
         results.median = this.findMedianRun(results.runs);
-        console.log(messages.getMessage('MEDIAN_RUN'));
+        if(this.flags.showLaunchingResults)
+          console.log(messages.getMessage('MEDIAN_RUN'));
         this.displayOutput(results.median);
       } else if (this.flags.submit) {
         const sheets = new Sheets(this.sheets, this.clientSecret);
@@ -135,7 +139,8 @@ class PWMetrics {
         lhResults = await this.runLighthouseOnCI().then((lhResults:LighthouseResults) => {
           // fix for https://github.com/paulirish/pwmetrics/issues/63
           return new Promise<LighthouseResults>(resolve => {
-            console.log(messages.getMessage('WAITING'));
+            if(this.flags.showLaunchingResults)
+              console.log(messages.getMessage('WAITING'));
             setTimeout(_ => {
               return resolve(lhResults);
             }, 2000);
@@ -177,20 +182,24 @@ class PWMetrics {
 
   async retryLighthouseOnCI(): Promise<LighthouseResults> {
     this.tryLighthouseCounter++;
-    console.log(messages.getMessage('CRI_TIMEOUT_RELAUNCH'));
+    if(this.flags.showLaunchingResults)
+      console.log(messages.getMessage('CRI_TIMEOUT_RELAUNCH'));
 
     try {
       return await this.runLighthouseOnCI();
     } catch(error) {
-      console.error(error.message);
-      console.error(messages.getMessage('CLOSING_CHROME'));
+      if(this.flags.showLaunchingResults) {
+        console.error(error.message);
+        console.error(messages.getMessage('CLOSING_CHROME'));
+      }
       await this.killLauncher();
     }
   }
 
   async launchChrome(): Promise<LaunchedChrome|Error> {
     try {
-      console.log(messages.getMessage('LAUNCHING_CHROME'));
+      if(this.flags.showLaunchingResults)
+        console.log(messages.getMessage('LAUNCHING_CHROME'));
       this.launcher = await launch({
         port: this.flags.port,
         chromeFlags: this.parsedChromeFlags,
@@ -199,7 +208,8 @@ class PWMetrics {
       this.flags.port = this.launcher.port;
       return this.launcher;
     } catch(error) {
-      console.error(error);
+      if(this.flags.showLaunchingResults)
+        console.error(error);
       await this.killLauncher();
       return error;
     }
@@ -207,7 +217,7 @@ class PWMetrics {
 
   async recordLighthouseTrace(data: LighthouseResults): Promise<MetricsResults> {
     try {
-      const preparedData = metrics.prepareData(data);
+      const preparedData = metrics.prepareData(data, this.flags);
 
       if (this.flags.upload) {
         const driveResponse = await upload(data, this.clientSecret);
@@ -219,7 +229,7 @@ class PWMetrics {
       }
 
       if (this.flags.expectations) {
-        expectations.checkExpectations(preparedData.timings, this.expectations);
+        expectations.checkExpectations(preparedData.timings, this.expectations, this.flags);
       }
 
       return preparedData;
@@ -229,7 +239,7 @@ class PWMetrics {
   }
 
   displayOutput(data: MetricsResults): MetricsResults {
-    if (!this.flags.json)
+    if (!this.flags.json && this.flags.showLaunchingResults)
       this.showChart(data);
 
     return data;
@@ -242,7 +252,8 @@ class PWMetrics {
     timings = timings.filter(r => {
       // filter out metrics that failed to record
       if (r.timing === undefined || isNaN(r.timing)) {
-        console.error(messages.getMessageWithPrefix('ERROR', 'METRIC_IS_UNAVAILABLE', r.title));
+        if(this.flags.showLaunchingResults)
+          console.error(messages.getMessageWithPrefix('ERROR', 'METRIC_IS_UNAVAILABLE', r.title));
         return false;
       }
       // don't chart hidden metrics, but include in json
